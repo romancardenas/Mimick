@@ -28,6 +28,8 @@
 #include "trampoline.h"
 #include "vitals.h"
 
+#include "vitals.h"
+
 #define PAGE_SIZE 0x1000
 
 extern void mmk_trampoline();
@@ -41,7 +43,9 @@ extern void mmk_trampoline_end();
 #  include <fcntl.h>
 # endif
 
-# if defined __clang__
+# if defined __APPLE__
+#  include <libkern/OSCacheControl.h> // LLVM __clear_cache seems not working on Mac ARM64
+# elif defined __clang__
 void __clear_cache(void *, void *);
 # endif
 
@@ -53,6 +57,9 @@ plt_fn *create_trampoline(void *ctx, plt_fn *routine)
     mmk_assert(trampoline_sz < PAGE_SIZE);
 
 # if defined HAVE_MMAP_MAP_ANONYMOUS
+#  if !defined MAP_JIT
+#   define MAP_JIT 0
+#  endif
     void **map = mmap(NULL, PAGE_SIZE,
 #   if !defined __APPLE__
             PROT_READ | PROT_WRITE | PROT_EXEC,
@@ -63,7 +70,7 @@ plt_fn *create_trampoline(void *ctx, plt_fn *routine)
             -1, 0);
 # elif defined HAVE_MMAP_MAP_ANON
     void **map = mmap(NULL, PAGE_SIZE,
-            PROT_READ | PROT_WRITE | PROT_EXEC,
+            PROT_READ | PROT_WRITE,
             MAP_PRIVATE | MAP_ANON,
             -1, 0);
 # else
